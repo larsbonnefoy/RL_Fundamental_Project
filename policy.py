@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class ParametricPolicy(nn.Module):
     """
         Parametric policy implementation for continuous control task. 
@@ -25,12 +24,16 @@ class ParametricPolicy(nn.Module):
             2.  Throttle of lateral boosters. `[-1; 1]` with boosters off in region `-0.5 < booster < 0.5`. 
                 Left booster scales 50%-100% between `[-1; -0.5]`.
                 Right booster scales 50%-100% between `[0.5; 1]`.
+        :param requires_grad: Boolean flag to control gradient computation (default: True)
     """
-    def __init__(self, state_dims=8, hidden_dims=128, action_dims=2):
+    def __init__(self, state_dims=8, hidden_dims=128, action_dims=2, requires_grad=True):
         super().__init__()
 
         self.input = nn.Linear(state_dims, hidden_dims)
         self.output = nn.Linear(hidden_dims, action_dims)
+
+        # in case of Gradient-free optim gradient storing is not required (breaking news....)
+        self.set_requires_grad(requires_grad)
 
     def forward(self, x):
         """

@@ -1,7 +1,7 @@
 import gymnasium as gym
 from gymnasium import Wrapper
 from policy import ParametricPolicy
-from zerothoptim import produce_perturbations
+from zerothoptim import train_0th_optim
 import torch
 
 class TorchWrapper(Wrapper):
@@ -33,52 +33,10 @@ class TorchWrapper(Wrapper):
         return obs, reward, terminated, truncated, info
 
 
-def train_epsiode(env, action_function):
-    """
-        Produces one epsiode from our environment. Selects an action from our 
-        action function which should be a function which takes as argument and observation.
-
-        :param env: our gym environment
-        :param action_function: function using observations to produce a new action
-    """
-    # initial state
-    observation, info = env.reset()
-    episode_over = False
-    total_reward = 0
-
-    while not episode_over:
-        # action = env.action_space.sample()
-        action = action_function(observation)
-        print(action)
-
-        # Take the action and see what happens
-        observation, reward, terminated, truncated, info = env.step(action)
-
-        total_reward += reward
-        episode_over = terminated or truncated
-
-    print(f"Episode finished! Total reward: {total_reward}")
-    return reward
-
 
 def main():
     env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode="human"))
-
-    policy: ParametricPolicy = ParametricPolicy()
-    p_p, n_p = produce_perturbations(policy.get_parameters())
-
-    # Samples provides a numpy array
-    # state = env.observation_space.sample()
-    # state = torch.FloatTensor(state)
-
-    with torch.no_grad():
-        train_epsiode(env, lambda obs: policy(obs))
-
-
-
-
-    # print(f"Starting observation: {observation}")
-    #
+    train_0th_optim(env, 1)
     env.close()
 
 
