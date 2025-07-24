@@ -1,7 +1,6 @@
 import gymnasium as gym
 from gymnasium import Wrapper
-from policy import ParametricPolicy
-from zerothoptim import train_0th_optim
+from zerothoptim import train_0th_optim, run_episode
 import torch
 
 class TorchWrapper(Wrapper):
@@ -35,9 +34,14 @@ class TorchWrapper(Wrapper):
 
 
 def main():
-    env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode="human"))
-    train_0th_optim(env, 1)
-    env.close()
+    train_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode=None))
+    policy = train_0th_optim(train_env, 2000, runs_per_episode=4, std=1, lr=0.0001, log_file_name="0th-1-0_0001.txt")
+    train_env.close()
+
+    display_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode="human")) 
+    r = run_episode(display_env, lambda obs: policy(obs))
+    print(f"Final Reward: {r}")
+    display_env.close()
 
 
 if __name__ == "__main__":

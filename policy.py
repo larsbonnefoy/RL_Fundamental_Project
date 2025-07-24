@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class ParametricPolicy(nn.Module):
     """
         Parametric policy implementation for continuous control task. 
-        Source - https://gymnasium.farama.org/environments/box2d/lunar_lander/#action-space
+        Source - https://gymnasium.farama.org/environments/box2d/lunar_lander/
 
         :param states: 8 continuous input states for LunarLander-v3
             - Position `x`
@@ -33,7 +33,8 @@ class ParametricPolicy(nn.Module):
         self.output = nn.Linear(hidden_dims, action_dims)
 
         # in case of Gradient-free optim gradient storing is not required (breaking news....)
-        self.set_requires_grad(requires_grad)
+        for param in self.parameters():
+            param.requires_grad = requires_grad
 
     def forward(self, x):
         """
@@ -45,6 +46,13 @@ class ParametricPolicy(nn.Module):
         action = torch.tanh(self.output(x))
         return action
 
+    def update_weights(self, new_weights):
+        """
+            New weights should be a list of tensors which will be 
+            assigned to the parameters of the network
+        """
+        for param, new_weights in zip(self.parameters(), new_weights):
+            param.data = nn.parameter.Parameter(new_weights)
 
     def get_parameters(self):
         """
