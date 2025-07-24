@@ -1,30 +1,21 @@
-# TODO: Could look into perturbation: what if we use autocorrelation perturbation instead of random ?
 """
-This file contains the code for Zeroth-order Optimization
-
-
-We provide functions to create the perturbation vector which consists of random values
-with average 0 and some variance. 
-This perturbation vector is used to produce two perturbation of theta, our model parameters.
-We then evaluate policy with the perturbated model.
+Implementation of population methods
 """
-
-import torch
-import numpy as np
-import logging
-from tqdm import tqdm
 from utils import run_episode, test_policy
+import torch
+import logging
 from policy import ParametricPolicy
+from tqdm import tqdm
 
-def _produce_perturbations(model_params: list[torch.nn.parameter.Parameter], std: float = 1.0):
+def _produce_perturbations(model_params: list[torch.nn.parameter.Parameter], n = 10, std: float = 1.0):
     """
-        Produces 2 perturbations given the model_params. 
+        Produces n perturbations given the model_params. 
 
         :param model_params: list of parameters (in the form of tensors) of our model.
         :returns: positive_perturbation, negative_perturbation
     """
 
-    def _perturbation_vector():
+    def _perturbation():
         """
             Produces one perturbation vector per tensor in params.
 
@@ -40,45 +31,47 @@ def _produce_perturbations(model_params: list[torch.nn.parameter.Parameter], std
         )
         return [p_generator(param) for param in model_params]
 
-    pos_perturb = _perturbation_vector()
-    neg_perturb = [-p for p in pos_perturb]
-    return pos_perturb, neg_perturb
+    return [_perturbation() for i in range(n)]
 
-def train_0th_optim(env, 
+def train_population(env, 
                     nb_episodes, 
                     runs_per_episode = 1, 
-                    lr = 0.001, 
+                    n = 10, 
                     std=0.001, 
-                    log_file_name="0th-optim.txt"):
+                    log_file_name="population.txt"):
     """
-        Trains a policy with 0-th order optimization
+        Trains a policy with population method
 
         :param env: Is the gym environment
         :param nb_episodes: is the number of episodes on which or model is trained
         :param runs_per_episode: is the number of runs of every episode when evaluating 
             a certain perturbed policy.
+        :param n: is the number of produced perturbations
+        :param std: is the standard deviation of the perturbation
         :param log_file_name: name of the log file the output has to be saved to
 
     """
     logging.basicConfig(filename=f"logs/{log_file_name}", level=logging.INFO, format='%(message)s') 
     policy: ParametricPolicy = ParametricPolicy(requires_grad=False)
 
-    # reduces memory footprint as no backprop is used
     with torch.no_grad():
         for i in tqdm(range(nb_episodes), desc="Training Episodes", unit="episode"):
             # need some small std. Std = 1 produces huge differences
             perturbations = _produce_perturbations(policy.get_parameters(), std=std)
             rewards = [test_policy(env, policy, perturbation, runs_per_episode) for perturbation in perturbations]
 
-            # 0.5 * score of θ+ - score of θ-) × θ+
-            gradient = list(map(lambda w: 0.5 * (rewards[0] - rewards[1]) * w, perturbations[0]))
-            # apply learning rate to gradient and add this to the original parameters.
+            # select the best perturbation, which is the one leading to the best reward
+            best_p = perturbations[rewards.index(max(rewards))]
+
+            # add the best perturbation to the current weights
             updated_params = list(map(lambda t1, t2: t1 + t2, 
                                       policy.get_parameters(), 
-                                      map(lambda w: w * lr, gradient)))
+                                      best_p))
             
             policy.update_weights(updated_params)
             eval_reward = run_episode(env, lambda obs: policy(obs))
             logging.info(f"{i + 1} {eval_reward}")
             tqdm.write(f"Episode {i + 1}/{nb_episodes}: Reward = {eval_reward}")
     return policy
+
+    pass
