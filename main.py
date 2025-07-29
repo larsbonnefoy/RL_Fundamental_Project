@@ -2,7 +2,7 @@ import gymnasium as gym
 from gymnasium import Wrapper
 from zerothoptim import train_0th_optim
 from population import train_population
-from utils import run_episode
+from utils import run_episode, AdaptativeStdReduction
 import torch
 
 class TorchWrapper(Wrapper):
@@ -37,8 +37,19 @@ class TorchWrapper(Wrapper):
 
 def main():
     train_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode=None))
-    #policy = train_0th_optim(train_env, 1000, runs_per_episode=4, std=0.1, lr=0.01)
-    policy = train_population(train_env, 1000, runs_per_episode=5, std=1)
+    policy = train_0th_optim(train_env, 
+                             500, 
+                             number_evaluation=5, 
+                             adaptive_std=AdaptativeStdReduction(
+                                std=0.5,
+                                decay_rate=1, 
+                                window_size=3,
+                                reward_threshold=100
+                             ), 
+                             lr=0.01, 
+                             hidden_dims=128, 
+                             log_file_name="0th-0_5-0_01-128_2.txt")
+    #policy = train_population(train_env, 1000, runs_per_episode=5, std=1, n = 50)
     train_env.close()
 
     display_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode="human")) 

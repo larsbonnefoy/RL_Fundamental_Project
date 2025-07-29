@@ -1,11 +1,15 @@
 """
 Implementation of population methods
 """
+
 from utils import run_episode, test_policy
 import torch
 import logging
 from policy import ParametricPolicy
 from tqdm import tqdm
+from functools import partial
+import torch.multiprocessing as mp
+import numpy as np
 
 def _produce_perturbations(model_params: list[torch.nn.parameter.Parameter], n = 10, std: float = 1.0):
     """
@@ -33,9 +37,36 @@ def _produce_perturbations(model_params: list[torch.nn.parameter.Parameter], n =
 
     return [_perturbation() for i in range(n)]
 
+def _worker_function(args):
+    # NOTE: 
+    # this approach creates copy of the policy for each perturbations, little inefficient as we should 
+    # create a copy for each worker (each worker evaluating multiple policies). But the code for this 
+    # less readable, so we took a simpler approach. Creating copies is also negligible compared to the 
+    # evaluation of the policy.
+    env, policy, perturbation, runs_per_episode = args
+    return test_policy(env=env, policy=policy.copy(), p_weights=perturbation, runs_per_episode=runs_per_episode)
+
+def parallel_reward_computation(env, policy, perturbations, runs_per_episode, num_workers=None):
+    """
+    Parallelize reward computation using torch.multiprocessing
+    Runs policy evaluation in //. 
+    """
+    if num_workers is None:
+        num_workers = mp.cpu_count()
+
+    rewards = np.zeroes
+    args_list = [(env, policy, pert, runs_per_episode) for pert in perturbations]
+
+    with mp.Pool(num_workers) as pool:
+        rewards = pool.map(
+            _worker_function,
+            args_list
+        ) 
+    return rewards
+
 def train_population(env, 
                     nb_episodes, 
-                    runs_per_episode = 1, 
+                    number_evaluation = 1, 
                     n = 10, 
                     std=0.001, 
                     log_file_name="population.txt"):
@@ -44,34 +75,36 @@ def train_population(env,
 
         :param env: Is the gym environment
         :param nb_episodes: is the number of episodes on which or model is trained
-        :param runs_per_episode: is the number of runs of every episode when evaluating 
-            a certain perturbed policy.
+        :param number_evaluation: is the number of times a given perturbed policy is evaluated. 
+            Final reward of that policy is the average over the number of runs. 
         :param n: is the number of produced perturbations
         :param std: is the standard deviation of the perturbation
         :param log_file_name: name of the log file the output has to be saved to
 
     """
     logging.basicConfig(filename=f"logs/{log_file_name}", level=logging.INFO, format='%(message)s') 
-    policy: ParametricPolicy = ParametricPolicy(requires_grad=False)
+    policy: ParametricPolicy = ParametricPolicy(hidden_dims=64, requires_grad=False)
 
+    #TODO: Add sim anneal  to std. Annealing starts
     with torch.no_grad():
         for i in tqdm(range(nb_episodes), desc="Training Episodes", unit="episode"):
             # need some small std. Std = 1 produces huge differences
-            perturbations = _produce_perturbations(policy.get_parameters(), std=std)
-            rewards = [test_policy(env, policy, perturbation, runs_per_episode) for perturbation in perturbations]
+            perturbations = _produce_perturbations(policy.get_parameters(), std=std, n=n)
+            rewards = [test_policy(env, policy, perturbation, number_evaluation) for perturbation in perturbations]
+
+            # NOTE: // computation is too slow with small values -> High overhead
+            #rewards = parallel_reward_computation(env, policy, perturbations, runs_per_episode, num_workers=8)
 
             # select the best perturbation, which is the one leading to the best reward
             best_p = perturbations[rewards.index(max(rewards))]
 
             # add the best perturbation to the current weights
-            updated_params = list(map(lambda t1, t2: t1 + t2, 
-                                      policy.get_parameters(), 
+            updated_params = list(map(lambda t1, t2: t1 + t2,
+                                      policy.get_parameters(),
                                       best_p))
-            
             policy.update_weights(updated_params)
+
             eval_reward = run_episode(env, lambda obs: policy(obs))
             logging.info(f"{i + 1} {eval_reward}")
             tqdm.write(f"Episode {i + 1}/{nb_episodes}: Reward = {eval_reward}")
     return policy
-
-    pass

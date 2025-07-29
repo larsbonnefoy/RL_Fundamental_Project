@@ -1,4 +1,5 @@
 import torch
+import copy
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -30,18 +31,27 @@ class ParametricPolicy(nn.Module):
         super().__init__()
 
         self.input = nn.Linear(state_dims, hidden_dims)
+        self.activation = torch.nn.ReLU()
         self.output = nn.Linear(hidden_dims, action_dims)
 
         # in case of Gradient-free optim gradient storing is not required (breaking news....)
         for param in self.parameters():
             param.requires_grad = requires_grad
 
+    def copy(self):
+        """
+            Create a deep copy of the policy
+            Used for parallelization to provide each // instance with its own 
+            copy of the network to avoid race conditions.
+        """
+        return copy.deepcopy(self)
+
     def forward(self, x):
         """
             Forward pass for our Policy. 
             :param x: is an input state.
         """
-        x = F.relu(self.input(x))
+        x = self.activation(self.input(x))
         # tanh restricts output between [-1; 1]
         action = torch.tanh(self.output(x))
         return action
