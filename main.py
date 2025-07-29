@@ -37,25 +37,26 @@ class TorchWrapper(Wrapper):
 
 def main():
     train_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode=None))
-    policy = train_0th_optim(train_env, 
-                             500, 
-                             number_evaluation=5, 
-                             adaptive_std=AdaptativeStdReduction(
-                                std=0.5,
-                                decay_rate=1, 
-                                window_size=3,
-                                reward_threshold=100
-                             ), 
-                             lr=0.01, 
-                             hidden_dims=128, 
-                             log_file_name="0th-0_5-0_01-128_2.txt")
+    for i in range(2):
+        policy = train_0th_optim(train_env, 
+                                 500, 
+                                 number_evaluation=5, 
+                                 adaptive_std=AdaptativeStdReduction(
+                                    std=0.5,
+                                    decay_rate=0.95, 
+                                    window_size=3,
+                                    reward_threshold=100
+                                 ), 
+                                 lr=0.01, 
+                                 hidden_dims=128, 
+                                 log_file_name="adaptative.txt")
     #policy = train_population(train_env, 1000, runs_per_episode=5, std=1, n = 50)
     train_env.close()
 
-    display_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode="human")) 
-    r = run_episode(display_env, lambda obs: policy(obs))
-    print(f"Final Reward: {r}")
-    display_env.close()
+    #display_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode="human")) 
+    #r = run_episode(display_env, lambda obs: policy(obs))
+    #print(f"Final Reward: {r}")
+    #display_env.close()
 
 
 if __name__ == "__main__":

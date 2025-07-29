@@ -91,9 +91,10 @@ def train_0th_optim(env,
             reward = run_episode(env, lambda obs: policy(obs))
             std, avg = adaptive_std.get_std(reward)
 
-            logging.info(f"{i + 1} {reward}")
-            tqdm.write(f"Episode {i + 1}/{nb_episodes}: Reward = {reward}, Avg = {avg}, Std = {std}")
+            # logging.info(f"{i + 1} {reward}")
+            # tqdm.write(f"Episode {i + 1}/{nb_episodes}: Reward = {reward}, Avg = {avg}, Std = {std}")
     reward_history = adaptive_std.rewards 
     average_size = 100
-    print(f"Average rewards over last {average_size} episodes {np.average(reward_history[-average_size])}")
+    logging.info(f"{np.average(reward_history[-average_size])}")
+    #print(f"Average rewards over last {average_size} episodes {np.average(reward_history[-average_size])}")
     return policy
