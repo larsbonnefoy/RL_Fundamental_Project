@@ -4,6 +4,7 @@ from zerothoptim import train_0th_optim
 from population import train_population
 from utils import run_episode, AdaptativeStdReduction
 import torch
+import torch.multiprocessing as mp
 
 class TorchWrapper(Wrapper):
     """
@@ -33,23 +34,75 @@ class TorchWrapper(Wrapper):
 
         return obs, reward, terminated, truncated, info
 
-
+def training_worker(worker_id, train_env, hyperparams):
+    """
+    Worker function that runs the training loop
+    
+    Args:
+        worker_id: Identifier for the worker (0 or 1)
+        train_env: Training environment
+        hyperparams: Dictionary containing hyperparameters for this worker
+    """
+    print(f"Worker {worker_id} starting training with hyperparams: {hyperparams}")
+    
+    for i in range(2):
+        policy = train_0th_optim(
+            train_env, 
+            500, 
+            number_evaluation=5, 
+            adaptive_std=AdaptativeStdReduction(
+                std=hyperparams['std'],
+                decay_rate=hyperparams['decay_rate'], 
+                window_size=hyperparams['window_size'],
+                reward_threshold=hyperparams['reward_threshold']
+            ), 
+            lr=hyperparams['lr'], 
+            hidden_dims=hyperparams['hidden_dims'], 
+            log_file_name=hyperparams['log_file_name']
+        )
+    
+    print(f"Worker {worker_id} completed training")
 
 def main():
     train_env = TorchWrapper(gym.make("LunarLander-v3", continuous=True, render_mode=None))
-    for i in range(2):
-        policy = train_0th_optim(train_env, 
-                                 500, 
-                                 number_evaluation=5, 
-                                 adaptive_std=AdaptativeStdReduction(
-                                    std=0.5,
-                                    decay_rate=0.95, 
-                                    window_size=3,
-                                    reward_threshold=100
-                                 ), 
-                                 lr=0.01, 
-                                 hidden_dims=128, 
-                                 log_file_name="adaptative.txt")
+
+    mp.set_start_method('spawn', force=True)
+    
+    hyperparams_set1 = {
+        'std': 0.5,
+        'decay_rate': 0.95,
+        'window_size': 3,
+        'reward_threshold': 100,
+        'lr': 0.01,
+        'hidden_dims': 128,
+        'log_file_name': "adaptative.txt"
+    }
+    
+    hyperparams_set2 = {
+        'std': 0.5,
+        'decay_rate': 1,
+        'window_size': 3,
+        'reward_threshold': 100,
+        'lr': 0.01,
+        'hidden_dims': 128,
+        'log_file_name': "constant.txt"
+    }
+
+        # Create processes
+    processes = []
+    
+    p1 = mp.Process(target=training_worker, args=(1, train_env, hyperparams_set1))
+    processes.append(p1)
+    
+    p2 = mp.Process(target=training_worker, args=(2, train_env, hyperparams_set2))
+    processes.append(p2)
+    
+    for p in processes:
+        p.start()
+    for p in processes:
+        p.join()
+    
+    print("All workers completed!")
     #policy = train_population(train_env, 1000, runs_per_episode=5, std=1, n = 50)
     train_env.close()
 
