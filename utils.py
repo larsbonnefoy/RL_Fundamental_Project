@@ -7,8 +7,9 @@ from policy import ParametricPolicy
 from dataclasses import dataclass
 import numpy as np
 
-@contextmanager 
-def temp_weights(policy: ParametricPolicy , new_params):
+
+@contextmanager
+def temp_weights(policy: ParametricPolicy, new_params):
     """
         Applies temp weights to the policy. 
         Restores original weights once context is over
@@ -20,6 +21,7 @@ def temp_weights(policy: ParametricPolicy , new_params):
     finally:
         policy.load_state_dict(original_state)
 
+
 def test_policy(env, policy, p_weights, number_evaluation):
     """
         Takes original parameters of policy and the perturbation weights
@@ -30,13 +32,15 @@ def test_policy(env, policy, p_weights, number_evaluation):
             Final reward of that policy is the average over the number of runs. 
     """
     # new params are the original parameters changed by the perturbation weights.
-    new_params = list(map(lambda t1, t2: t1 + t2, policy.get_parameters(), p_weights))
+    new_params = list(map(lambda t1, t2: t1 + t2,
+                      policy.get_parameters(), p_weights))
     with temp_weights(policy, new_params) as temp_policy:
         r = 0
         for i in range(number_evaluation):
             r += run_episode(env, lambda obs: temp_policy(obs))
         r = r / number_evaluation
     return r
+
 
 def run_episode(env, action_function):
     """
@@ -65,6 +69,7 @@ def run_episode(env, action_function):
 
     return total_reward
 
+
 @dataclass
 class AdaptativeStdReduction:
     """
@@ -83,10 +88,10 @@ class AdaptativeStdReduction:
 
     def __post_init__(self):
         self.std_max = self.std
-        #  need some baseline std to avoid collapse of exploratin.
+        #  need some baseline std to avoid collapse of exploration.
         self.std_min = self.std * 0.05
         self.rewards = np.array([])
-    
+
     def get_std(self, reward):
         """
             Computes new std given current reward.
@@ -106,12 +111,12 @@ class AdaptativeStdReduction:
         x = 0 if i > self.window_size else self.window_size - i
         start = i - (self.window_size - x)
 
-        avg = np.average(self.rewards[start: i]) 
+        avg = np.average(self.rewards[start: i])
 
         # only apply reduction with sufficent sample size
         if len(self.rewards) > self.window_size:
             if avg > self.reward_threshold:
                 self.std = max(self.std * self.decay_rate, self.std_min)
-            else: 
+            else:
                 self.std = min(self.std / self.decay_rate, self.std_max)
         return self.std, avg

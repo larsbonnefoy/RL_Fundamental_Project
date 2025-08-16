@@ -7,8 +7,8 @@ set terminal pngcairo enhanced color size 1200,800
 set output 'graphs/episode_rewards.png'
 
 # Set title and labels
-set title "0th-order Optimization - Episode Rewards Over Time." font ",16"
-set label 1 "(Hidden Units: 128; Lr=0.01, Std=0.5) " at screen 0.5,0.92 center font ",12"
+set title "Population methods - Episode Rewards Over Time." font ",16"
+set label 1 "(Hidden Units: 128; n=10, Std=0.5) " at screen 0.5,0.92 center font ",12"
 set xlabel "Episode Number" font ",14"
 set ylabel "Reward" font ",14"
 
@@ -24,7 +24,7 @@ set style line 2 linecolor rgb '#F39C12' linewidth 2 pointtype 5 pointsize 0.8
 #set style line 3 linecolor rgb '#3FB537' linewidth 2 pointtype 1 pointsize 0.8
 
 # Plot the data
-plot 'logs/0th-0_5-0_01-128_2.txt' using 1:2 with linespoints linestyle 1 title "Constant Std - Avg 100: 172,59", \
-     'logs/0th-0_5-0_01-128_adaptative_95-3-100.txt' using 1:2 with linespoints linestyle 2 title "Adaptative Std - Avg 100: 272.07"
+plot 'logs/population_10_0_5_128.txt' using 1:2 with linespoints linestyle 1 title "Constant Std. Avg 100: 141.03", \
+     'logs/population_10_adapt_128.txt' using 1:2 with linespoints linestyle 2 title "Adaptative Std. Avg 100: 225.32"
      #'logs/0th-0_5-0_01-128_adaptative_100.txt' using 1:2 with linespoints linestyle 3 title "Adaptative Std, Reduction x100"
 
